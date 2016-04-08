@@ -1,20 +1,23 @@
-FROM codenvy/ubuntu_jre 
-USER root 
+FROM codenvy/ubuntu_jre
 
-# remove several traces of debian python 
+USER root
+
+# remove several traces of debian python
 RUN apt-get purge -y python.* && \
     apt-get update && \
-    apt-get install -y gcc make python3-pip
+    apt-get install -y gcc make python-pip zlibc zlib1g zlib1g-dev libssl-dev
 
-# http://bugs.python.org/issue19846 # > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK. 
-ENV LANG C.UTF-8 
+# http://bugs.python.org/issue19846
+# > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
+ENV LANG C.UTF-8
 
-# gpg: key F73C700D: public key "Larry Hastings <larry@hastings.org>" imported 
-ENV GPG_KEY 97FC712E4C024BBEA48A61ED3A5CA953F73C700D 
-ENV PYTHON_VERSION 3.5.1 
+# gpg: key 18ADD4FF: public key "Benjamin Peterson <benjamin@python.org>" imported
+ENV GPG_KEY C01E1CAD5EA2C4F0B8E3571504C367C218ADD4FF
 
-# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'" 
-ENV PYTHON_PIP_VERSION 8.1.1 
+ENV PYTHON_VERSION 2.7.11
+
+# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
+ENV PYTHON_PIP_VERSION 8.1.1
 
 RUN set -ex \
 	&& curl -fSL "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" -o python.tar.xz \
@@ -32,22 +35,17 @@ RUN set -ex \
 	&& make -j$(nproc) \
 	&& make install \
 	&& ldconfig \
-	&& pip3 install --upgrade --ignore-installed pip==$PYTHON_PIP_VERSION \
+	&& curl -fSL 'https://bootstrap.pypa.io/get-pip.py' | python2 \
+	&& pip install --no-cache-dir --upgrade pip==$PYTHON_PIP_VERSION \
 	&& find /usr/local \
 		\( -type d -a -name test -o -name tests \) \
 		-o \( -type f -a -name '*.pyc' -o -name '*.pyo' \) \
 		-exec rm -rf '{}' + \
 	&& rm -rf /usr/src/python
 
-# make some useful symlinks that are expected to exist 
-RUN cd /usr/local/bin \
-	&& ln -s easy_install-3.5 easy_install \
-	&& ln -s idle3 idle \
-	&& ln -s pydoc3 pydoc \
-	&& ln -s python3 python \
-	&& ln -s python-config3 python-config
+# install "virtualenv", since the vast majority of users of this image will want it
+RUN pip install --no-cache-dir virtualenv
 
 USER user 
 EXPOSE 8080 
-
 CMD tailf /dev/null
